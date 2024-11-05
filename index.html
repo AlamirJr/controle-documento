@@ -8,21 +8,28 @@
 </head>
 <body>
     <h1>Controle de Documentos</h1>
-    <form id="documentForm">
-        <label for="docNumber">Número do Documento:</label>
-        <input type="text" id="docNumber" required>
-
-        <label for="docType">Tipo de Documento:</label>
-        <input type="text" id="docType" required>
-
-        <label for="docSender">Remetente:</label>
-        <input type="text" id="docSender" required>
-
-        <label for="docDate">Data:</label>
-        <input type="date" id="docDate" required>
-
-        <button type="submit">Adicionar Documento</button>
-    </form>
+    <div class="form-container">
+        <form id="documentForm">
+            <h2>Adicionar Documento</h2>
+            <div class="form-group">
+                <label for="docNumber">Número do Documento:</label>
+                <input type="text" id="docNumber" required>
+            </div>
+            <div class="form-group">
+                <label for="docType">Tipo de Documento:</label>
+                <input type="text" id="docType" required>
+            </div>
+            <div class="form-group">
+                <label for="docSender">Remetente:</label>
+                <input type="text" id="docSender" required>
+            </div>
+            <div class="form-group">
+                <label for="docDate">Data:</label>
+                <input type="date" id="docDate" required>
+            </div>
+            <button type="submit">Adicionar Documento</button>
+        </form>
+    </div>
 
     <h2>Documentos Registrados</h2>
     <input type="text" id="search" placeholder="Buscar por tipo...">
