@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Controle de Documentos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        h2 {
+            color: #333;
+            margin-top: 30px;
+        }
+
+        .form-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Controle de Documentos</h1>
+    <div class="form-container">
+        <form id="documentForm">
+            <h2>Adicionar Documento</h2>
+            <div class="form-group">
+                <label for="docNumber">Número do Documento:</label>
+                <input type="text" id="docNumber" required>
+            </div>
+            <div class="form-group">
+                <label for="docType">Tipo de Documento:</label>
+                <input type="text" id="docType" required>
+            </div>
+            <div class="form-group">
+                <label for="docSender">Remetente:</label>
+                <input type="text" id="docSender" required>
+            </div>
+            <div class="form-group">
+                <label for="docDate">Data:</label>
+                <input type="date" id="docDate" required>
+            </div>
+            <div class="form-group">
+                <label for="docObservation">Observação:</label>
+                <input type="text" id="docObservation">
+            </div>
+            <button type="submit">Adicionar Documento</button>
+        </form>
+    </div>
+
+    <h2>Documentos Registrados</h2>
+    <input type="text" id="search" placeholder="Buscar por tipo...">
+    <table id="docTable">
+        <thead>
+            <tr>
+                <th>Número do Documento</th>
+                <th>Tipo de Documento</th>
+                <th>Remetente</th>
+                <th>Data</th>
+                <th>Observação</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <button id="saveJson">Salvar Dados em JSON</button>
+    <input type="file" id="loadJson" accept=".json">
+    <button id="loadBtn">Carregar Dados do JSON</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('documentForm');
+            const docTable = document.querySelector('#docTable tbody');
+            const searchInput = document.getElementById('search');
+            const saveJsonBtn = document.getElementById('saveJson');
+            const loadJsonInput = document.getElementById('loadJson');
+            const loadBtn = document.getElementById('loadBtn');
+            let documents = [];
+            let editIndex = -1;
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const docNumber = document.getElementById('docNumber').value;
+                const docType = document.getElementById('docType').value;
+                const docSender = document.getElementById('docSender').value;
+                const docDate = document.getElementById('docDate').value;
+                const docObservation = document.getElementById('docObservation').value;
+
+                if (editIndex === -1) {
+                    documents.push({ number: docNumber, type: docType, sender: docSender, date: docDate, observation: docObservation });
+                } else {
+                    documents[editIndex] = { number: docNumber, type: docType, sender: docSender, date: docDate, observation: docObservation };
+                    editIndex = -1;
+                }
+
+                updateTable();
+                form.reset();
+            });
+
+            function updateTable() {
+                docTable.innerHTML = '';
+                documents.forEach((doc, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${doc.number}</td>
+                        <td>${doc.type}</td>
+                        <td>${doc.sender}</td>
+                        <td>${doc.date}</td>
+                        <td>${doc.observation}</td>
+                        <td>
+                            <button class="editBtn" data-index="${index}">Editar</button>
+                            <button class="deleteBtn" data-index="${index}">Excluir</button>
+                        </td>
+                    `;
+                    docTable.appendChild(row);
+                });
+
+                // Atribuindo eventos de clique para editar e excluir
+                document.querySelectorAll('.editBtn').forEach(button => {
+                    button.addEventListener('click', function () {
+                        const index = button.getAttribute('data-index');
+                        editDocument(index);
+                    });
+                });
+
+                document.querySelectorAll('.deleteBtn').forEach(button => {
+                    button.addEventListener('click', function () {
+                        const index = button.getAttribute('data-index');
+                        deleteDocument(index);
+                    });
+                });
+            }
+
+            function editDocument(index) {
+                const doc = documents[index];
+                document.getElementById('docNumber').value = doc.number;
+                document.getElementById('docType').value = doc.type;
+                document.getElementById('docSender').value = doc.sender;
+                document.getElementById('docDate').value = doc.date;
+                document.getElementById('docObservation').value = doc.observation;
+                editIndex = index;
+            }
+
+            function deleteDocument(index) {
+                if (confirm('Você tem certeza que deseja excluir este documento?')) {
+                    documents.splice(index, 1);
+                    updateTable();
+                }
+            }
+
+            saveJsonBtn.addEventListener('click', function () {
+                const blob = new Blob([JSON.stringify(documents, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'documentos.json';
+                a.click();
+            });
+
+            loadBtn.addEventListener('click', function () {
+                if (loadJsonInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => { documents = JSON.parse(e.target.result); updateTable(); };
+                    reader.readAsText(loadJsonInput.files[0]);
+                } else {
+                    alert('Por favor, selecione um arquivo JSON.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
