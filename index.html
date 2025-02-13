@@ -74,6 +74,11 @@
         th {
             background-color: #f2f2f2;
         }
+
+        .info {
+            margin: 10px 0;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -107,6 +112,12 @@
 
     <h2>Documentos Registrados</h2>
     <input type="text" id="search" placeholder="Buscar por tipo...">
+
+    <!-- Label para mostrar a quantidade de documentos -->
+    <div class="info">
+        <label id="docCountLabel">Total de Documentos: 0</label>
+    </div>
+
     <table id="docTable">
         <thead>
             <tr>
@@ -133,6 +144,7 @@
             const saveJsonBtn = document.getElementById('saveJson');
             const loadJsonInput = document.getElementById('loadJson');
             const loadBtn = document.getElementById('loadBtn');
+            const docCountLabel = document.getElementById('docCountLabel');
             let documents = [];
             let editIndex = -1;
 
@@ -193,6 +205,9 @@
                         deleteDocument(index);
                     });
                 });
+
+                // Atualizando a quantidade de documentos
+                docCountLabel.textContent = `Total de Documentos: ${documents.length}`;
             }
 
             function editDocument(index) {
