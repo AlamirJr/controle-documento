@@ -6,6 +6,7 @@
   <title>DocFlow — Controle de Documentos</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <style>
     :root {
       --bg: #0d0f14;
@@ -646,29 +647,75 @@
   // ── Search ─────────────────────────────────────────────────────────────────
   searchInput.addEventListener('input', () => renderTable(searchInput.value));
 
-  // ── EXPORTAR XLSX ──────────────────────────────────────────────────────────
-  document.getElementById('exportXlsx').addEventListener('click', () => {
+  // ── EXPORTAR XLSX (ExcelJS — com formatação) ───────────────────────────────
+  document.getElementById('exportXlsx').addEventListener('click', async () => {
     if (!documents.length) { toast('Nenhum documento para exportar.', 'error'); return; }
 
-    const headers = ['Número', 'Tipo', 'Remetente', 'Data', 'Observação'];
-    const rows = documents.map(d => [
-      d.number,
-      d.type,
-      d.sender,
-      d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR') : '',
-      d.observation
-    ]);
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'DocFlow';
+    const ws = wb.addWorksheet('Documentos');
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-
-    // larguras das colunas
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 24 }, { wch: 30 }, { wch: 14 }, { wch: 40 }
+    // colunas e larguras
+    ws.columns = [
+      { key: 'number',      width: 16 },
+      { key: 'type',        width: 22 },
+      { key: 'sender',      width: 30 },
+      { key: 'date',        width: 14 },
+      { key: 'observation', width: 44 },
     ];
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Documentos');
-    XLSX.writeFile(wb, 'documentos.xlsx');
+    // ── cabeçalho ──
+    const headerRow = ws.addRow(['Número', 'Tipo', 'Remetente', 'Data', 'Observação']);
+    headerRow.height = 20;
+    headerRow.eachCell(cell => {
+      cell.font      = { name: 'Arial', bold: true, size: 11, color: { argb: 'FF000000' } };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border    = {
+        top:    { style: 'thin', color: { argb: 'FF9BB0D4' } },
+        bottom: { style: 'thin', color: { argb: 'FF9BB0D4' } },
+        left:   { style: 'thin', color: { argb: 'FF9BB0D4' } },
+        right:  { style: 'thin', color: { argb: 'FF9BB0D4' } },
+      };
+    });
+
+    // ── dados ──
+    const border = {
+      top:    { style: 'thin', color: { argb: 'FFBFBFBF' } },
+      bottom: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+      left:   { style: 'thin', color: { argb: 'FFBFBFBF' } },
+      right:  { style: 'thin', color: { argb: 'FFBFBFBF' } },
+    };
+
+    documents.forEach((d, i) => {
+      const formatted = d.date
+        ? new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+
+      const row = ws.addRow([d.number, d.type, d.sender, formatted, d.observation]);
+      row.height = 18;
+
+      // zebra: linhas pares com fundo levemente cinza
+      const bgColor = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F5F5';
+
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.font      = { name: 'Arial', size: 11 };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+        cell.border    = border;
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: colNumber === 1 || colNumber === 4 ? 'center' : 'left',
+          wrapText: colNumber === 5  // quebra linha na observação se for longa
+        };
+      });
+    });
+
+    // gera o arquivo e dispara download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href = url; a.download = 'documentos.xlsx'; a.click();
+    URL.revokeObjectURL(url);
     toast('Planilha exportada com sucesso.', 'success');
   });
 
@@ -736,4 +783,3 @@
 </script>
 </body>
 </html>
-
