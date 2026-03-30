@@ -1,1 +1,1058 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocFlow — Controle de Documentos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #13161e;
+      --surface2: #1a1e29;
+      --border: #252a38;
+      --border-light: #2e3447;
+      --accent: #4f7fff;
+      --accent-glow: rgba(79,127,255,0.18);
+      --accent2: #00d4aa;
+      --accent2-glow: rgba(0,212,170,0.15);
+      --danger: #ff5f6d;
+      --warning: #ffb830;
+      --text: #e8ecf5;
+      --text-muted: #6b7494;
+      --text-dim: #9aa3bf;
+      --radius: 12px;
+      --radius-lg: 18px;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --transition: 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; opacity: .5;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0; width: 72px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 0; gap: 8px; z-index: 100;
+    }
+    .sidebar-logo {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 800; font-size: 18px; color: #fff;
+      margin-bottom: 20px; box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .sidebar-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background var(--transition);
+      color: var(--text-muted); font-size: 20px;
+    }
+    .sidebar-icon:hover, .sidebar-icon.active {
+      background: var(--surface2); color: var(--accent);
+    }
+    .sidebar-icon.active { box-shadow: inset 0 0 0 1px var(--border-light); }
+
+    /* ── Main ── */
+    .main { margin-left: 72px; padding: 32px 36px; position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    .header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      margin-bottom: 36px; animation: fadeDown .5s ease both;
+    }
+    .header-left h1 {
+      font-family: var(--font-display); font-size: 2rem; font-weight: 800;
+      letter-spacing: -.02em; line-height: 1;
+    }
+    .header-left h1 span { color: var(--accent); }
+    .header-left p { color: var(--text-muted); font-size: .875rem; margin-top: 6px; font-weight: 300; }
+    .header-right { display: flex; gap: 12px; align-items: center; }
+    .badge {
+      padding: 5px 12px; border-radius: 99px; font-size: .75rem; font-weight: 500;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim);
+    }
+    .badge.green {
+      background: rgba(0,212,170,.1); border-color: rgba(0,212,170,.2); color: var(--accent2);
+    }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 28px; animation: fadeUp .5s .05s ease both;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 20px 22px;
+      position: relative; overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .stat-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
+    .stat-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0; transition: opacity var(--transition);
+    }
+    .stat-card:hover::after { opacity: 1; }
+    .stat-icon { font-size: 22px; margin-bottom: 12px; display: inline-flex; }
+    .stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: .8rem; color: var(--text-muted); margin-top: 4px; font-weight: 300; }
+
+    /* ── Two col ── */
+    .two-col { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden; animation: fadeUp .5s .1s ease both;
+    }
+    .panel-header {
+      padding: 18px 22px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-title {
+      font-family: var(--font-display); font-size: 1rem; font-weight: 700;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .panel-title-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 8px var(--accent);
+    }
+    .panel-body { padding: 22px; }
+
+    /* ── Form ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: .78rem; font-weight: 500; color: var(--text-muted);
+      letter-spacing: .04em; text-transform: uppercase;
+    }
+    .field input, .field select {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 11px 14px;
+      color: var(--text); font-family: var(--font-body); font-size: .9rem;
+      outline: none; transition: border-color var(--transition), box-shadow var(--transition);
+      width: 100%;
+    }
+    .field select option { background: var(--surface2); }
+    .field input:focus, .field select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .field input::placeholder { color: var(--text-muted); opacity: .5; }
+    .field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.5); cursor: pointer; }
+
+    /* número gerado — readonly */
+    .field input[readonly] {
+      background: var(--surface2); color: var(--accent);
+      font-family: var(--font-display); font-weight: 700; cursor: default;
+      border-color: rgba(79,127,255,.2);
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 11px 20px; border-radius: var(--radius);
+      font-family: var(--font-body); font-size: .9rem; font-weight: 500;
+      cursor: pointer; border: none; transition: all var(--transition); white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 0 20px var(--accent-glow); }
+    .btn-primary:hover { background: #6b8fff; box-shadow: 0 0 28px rgba(79,127,255,.35); transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--border-light); color: var(--text); }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: rgba(255,95,109,.1); color: var(--danger); border: 1px solid rgba(255,95,109,.2); }
+    .btn-danger:hover { background: rgba(255,95,109,.2); }
+    .btn-sm { padding: 7px 12px; font-size: .8rem; border-radius: 8px; }
+    .btn-full { width: 100%; }
+    .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+    /* ── Table panel ── */
+    .table-panel { animation: fadeUp .5s .15s ease both; }
+    .toolbar { display: flex; align-items: center; gap: 12px; }
+    .search-wrapper { position: relative; flex: 1; }
+    .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 16px; pointer-events: none; }
+    .search-wrapper input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px 10px 40px;
+      color: var(--text); font-family: var(--font-body); font-size: .9rem;
+      outline: none; transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .search-wrapper input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .search-wrapper input::placeholder { color: var(--text-muted); opacity: .5; }
+
+    /* ── Table ── */
+    .table-scroll { overflow-x: auto; margin-top: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead th {
+      padding: 10px 16px; text-align: left;
+      font-family: var(--font-display); font-size: .72rem; font-weight: 600;
+      letter-spacing: .06em; text-transform: uppercase;
+      color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background var(--transition); animation: rowIn .3s ease both; }
+    tbody tr:hover { background: rgba(255,255,255,.025); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 13px 16px; color: var(--text-dim); vertical-align: middle; }
+    .td-number { font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: .9rem; }
+    .type-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+      border-radius: 6px; font-size: .78rem; font-weight: 500;
+      background: var(--surface2); border: 1px solid var(--border-light); color: var(--text); white-space: nowrap;
+    }
+    .type-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+    .date-cell { font-family: monospace; font-size: .82rem; color: var(--text-muted); }
+    .actions-cell { white-space: nowrap; }
+    .actions-cell .btn { margin-right: 4px; }
+
+    /* ── Empty ── */
+    .empty-state { text-align: center; padding: 56px 24px; }
+    .empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: .3; }
+    .empty-title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--text-muted); }
+    .empty-sub { font-size: .85rem; color: var(--text-muted); margin-top: 6px; font-weight: 300; opacity: .7; }
+
+    /* ── IO bar ── */
+    .io-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 16px 22px; border-top: 1px solid var(--border); background: rgba(0,0,0,.15);
+    }
+    .io-bar-label { font-size: .8rem; color: var(--text-muted); margin-right: 4px; }
+    .file-input-wrapper { position: relative; overflow: hidden; }
+    .file-input-wrapper input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+    /* ── Toast ── */
+    .toast-container { position: fixed; bottom: 28px; right: 28px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
+    .toast {
+      background: var(--surface2); border: 1px solid var(--border-light); border-radius: var(--radius);
+      padding: 13px 18px; display: flex; align-items: center; gap: 12px; font-size: .875rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4); animation: toastIn .3s ease; min-width: 260px;
+    }
+    .toast.out { animation: toastOut .3s ease forwards; }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .toast.success .toast-dot { background: var(--accent2); }
+    .toast.error   .toast-dot { background: var(--danger); }
+    .toast.info    .toast-dot { background: var(--accent); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; z-index: 500;
+      opacity: 0; pointer-events: none; transition: opacity var(--transition);
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg); padding: 28px 30px; min-width: 340px;
+      transform: scale(.95); transition: transform var(--transition);
+    }
+    .modal-overlay.open .modal { transform: scale(1); }
+    .modal-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
+    .modal-body { color: var(--text-muted); font-size: .9rem; line-height: 1.6; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── Edit banner ── */
+    .edit-banner {
+      display: none; background: rgba(255,184,48,.08); border: 1px solid rgba(255,184,48,.2);
+      border-radius: var(--radius); padding: 10px 14px; font-size: .82rem;
+      color: var(--warning); margin-bottom: 16px; align-items: center; gap: 8px;
+    }
+    .edit-banner.show { display: flex; }
+
+    /* ── Animations ── */
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:none; } }
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(12px);  } to { opacity:1; transform:none; } }
+    @keyframes rowIn    { from { opacity:0; transform:translateX(-6px);  } to { opacity:1; transform:none; } }
+    @keyframes toastIn  { from { opacity:0; transform:translateY(12px);  } to { opacity:1; transform:none; } }
+    @keyframes toastOut { to   { opacity:0; transform:translateY(12px);  } }
+
+
+    /* ── Login screen ── */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-overlay.hidden { display: none; }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      width: 100%; max-width: 380px;
+      animation: fadeUp .4s ease both;
+    }
+    .login-logo {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 800; font-size: 20px; color: #fff;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 28px var(--accent-glow);
+    }
+    .login-title {
+      font-family: var(--font-display); font-size: 1.4rem; font-weight: 800;
+      text-align: center; margin-bottom: 4px;
+    }
+    .login-title span { color: var(--accent); }
+    .login-sub {
+      text-align: center; color: var(--text-muted); font-size: .85rem;
+      margin-bottom: 28px; font-weight: 300;
+    }
+    .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .login-field label {
+      font-size: .78rem; font-weight: 500; color: var(--text-muted);
+      letter-spacing: .04em; text-transform: uppercase;
+    }
+    .login-field input {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 14px;
+      color: var(--text); font-family: var(--font-body); font-size: .95rem;
+      outline: none; transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .login-field input:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .login-error {
+      background: rgba(255,95,109,.08); border: 1px solid rgba(255,95,109,.2);
+      border-radius: var(--radius); padding: 10px 14px;
+      font-size: .82rem; color: var(--danger); margin-bottom: 14px;
+      display: none;
+    }
+    .login-error.show { display: block; }
+    .user-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 12px; border-radius: 99px; font-size: .75rem; font-weight: 500;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim);
+      cursor: pointer; transition: border-color var(--transition);
+    }
+    .user-badge:hover { border-color: var(--danger); color: var(--danger); }
+    .user-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot-admin { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+    .dot-user  { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
+  </style>
+</head>
+<body>
+
+<!-- Login overlay -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">DF</div>
+    <div class="login-title">Doc<span>Flow</span></div>
+    <div class="login-sub">Sistema de Controle de Documentos</div>
+    <div class="login-field">
+      <label>Senha de acesso</label>
+      <input type="password" id="loginPassword" placeholder="Digite sua senha" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="loginError">Senha incorreta. Tente novamente.</div>
+    <button class="btn btn-primary btn-full" id="loginBtn">Entrar</button>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">DF</div>
+  <div class="sidebar-icon active" title="Documentos">📄</div>
+  <div class="sidebar-icon" title="Estatísticas">📊</div>
+  <div class="sidebar-icon" id="btnConfig" title="Configurações">⚙️</div>
+</aside>
+
+<main class="main">
+
+  <header class="header">
+    <div class="header-left">
+      <h1>Doc<span>Flow</span></h1>
+      <p>Sistema de Controle de Documentos</p>
+    </div>
+    <div class="header-right">
+      <span id="userBadgeWrap"></span>
+      <span class="badge" id="dateBadge"></span>
+      <span class="badge green">● Sistema ativo</span>
+      <span id="syncStatus" style="font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;"></span>
+    </div>
+  </header>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon">📁</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-label">Total de documentos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🗂️</div>
+      <div class="stat-value" id="statTypes">0</div>
+      <div class="stat-label">Tipos distintos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">👤</div>
+      <div class="stat-value" id="statSenders">0</div>
+      <div class="stat-label">Remetentes únicos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📅</div>
+      <div class="stat-value" id="statMonth">0</div>
+      <div class="stat-label">Este mês</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+
+    <!-- Form -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <span class="panel-title-dot"></span>
+          <span id="formTitle">Novo Documento</span>
+        </span>
+        <button class="btn btn-ghost btn-sm" id="clearBtn">Limpar</button>
+      </div>
+      <div class="panel-body">
+        <div class="edit-banner" id="editBanner">✏️ Modo de edição ativo</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Número (automático)</label>
+            <input type="text" id="docNumber" readonly placeholder="Gerado automaticamente">
+          </div>
+          <div class="field">
+            <label>Data</label>
+            <input type="date" id="docDate">
+          </div>
+          <div class="field form-full">
+            <label>Tipo de Documento</label>
+            <input type="text" id="docType" placeholder="Ex: Ofício, Memorando...">
+          </div>
+          <div class="field form-full">
+            <label>Remetente</label>
+            <input type="text" id="docSender" placeholder="Nome ou órgão de origem">
+          </div>
+          <div class="field form-full">
+            <label>Observação</label>
+            <input type="text" id="docObservation" placeholder="Detalhes adicionais (opcional)">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary btn-full" id="submitBtn">
+            <span id="submitIcon">＋</span>
+            <span id="submitText">Adicionar Documento</span>
+          </button>
+        </div>
+      </div>
+      <div class="io-bar">
+        <span class="io-bar-label">Excel:</span>
+        <button class="btn btn-secondary btn-sm" id="exportXlsx">⬇ Exportar .xlsx</button>
+        <div class="file-input-wrapper">
+          <button class="btn btn-secondary btn-sm">⬆ Importar .xlsx</button>
+          <input type="file" id="importXlsx" accept=".xlsx,.xls">
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="panel table-panel">
+      <div class="panel-header">
+        <span class="panel-title">
+          <span class="panel-title-dot" style="background:var(--accent2);box-shadow:0 0 8px var(--accent2);"></span>
+          Documentos Registrados
+        </span>
+        <div class="toolbar">
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search" placeholder="Buscar por tipo, número...">
+          </div>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Tipo</th>
+              <th>Remetente</th>
+              <th>Data</th>
+              <th>Observação</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="docTableBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">📂</div>
+          <div class="empty-title">Nenhum documento registrado</div>
+          <div class="empty-sub">Adicione o primeiro documento usando o formulário ao lado</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Delete modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-title">Confirmar exclusão</div>
+    <div class="modal-body">Tem certeza que deseja excluir este documento? Essa ação não pode ser desfeita.</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="cancelDelete">Cancelar</button>
+      <button class="btn btn-danger" id="confirmDelete">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Config modal -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal" style="min-width:400px;">
+    <div class="modal-title">⚙️ Configurações</div>
+    <div style="border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:24px;">
+      <div style="font-family:var(--font-display);font-size:.85rem;font-weight:700;margin-bottom:6px;color:var(--text);">Limpar todos os dados</div>
+      <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">Remove permanentemente todos os documentos do servidor. Esta ação não pode ser desfeita.</div>
+      <button class="btn btn-danger btn-sm" id="btnClearServer">🗑 Limpar dados do servidor</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="closeConfig">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm clear modal -->
+<div class="modal-overlay" id="clearModal">
+  <div class="modal">
+    <div class="modal-title">⚠️ Confirmar limpeza total</div>
+    <div class="modal-body">Todos os <strong id="clearCount" style="color:var(--danger)"></strong> documentos serão apagados permanentemente do servidor. Tem certeza absoluta?</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="cancelClear">Cancelar</button>
+      <button class="btn btn-danger" id="confirmClear">Sim, apagar tudo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  const PASS_ADMIN = '4321';
+  const PASS_USER  = '1234';
+  let currentRole  = null; // 'admin' | 'user'
+
+  function applyRole(role) {
+    currentRole = role;
+    sessionStorage.setItem('docflow_role', role);
+
+    // mostra o app
+    document.getElementById('loginOverlay').classList.add('hidden');
+
+    // badge no header
+    const wrap = document.getElementById('userBadgeWrap');
+    const label = role === 'admin' ? 'Administrador' : 'Usuário';
+    const dotCls = role === 'admin' ? 'dot-admin' : 'dot-user';
+    wrap.innerHTML = `<span class="user-badge" id="logoutBtn" title="Clique para sair">
+      <span class="dot ${dotCls}"></span>${label}
+    </span>`;
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+  }
+
+  function logout() {
+    sessionStorage.removeItem('docflow_role');
+    currentRole = null;
+    document.getElementById('loginOverlay').classList.remove('hidden');
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginError').classList.remove('show');
+  }
+
+  function tryLogin() {
+    const pw = document.getElementById('loginPassword').value;
+    if (pw === PASS_ADMIN)     { applyRole('admin'); loadFromServer(); }
+    else if (pw === PASS_USER) { applyRole('user');  loadFromServer(); }
+    else {
+      document.getElementById('loginError').classList.add('show');
+      document.getElementById('loginPassword').value = '';
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', tryLogin);
+  document.getElementById('loginPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') tryLogin();
+  });
+
+  // retoma sessão se ainda estiver ativa
+  const savedRole = sessionStorage.getItem('docflow_role');
+  if (savedRole) { applyRole(savedRole); }
+
+  // ── JSONBin config ─────────────────────────────────────────────────────────
+  const BIN_ID  = '69ca92a8856a682189e1bde6';
+  const API_KEY = '$2a$10$/uRmFqWxdVbka8qsL/A7u.uJypQpvzZg/DxSYmmxp7BlYCgRu6pty';
+  const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+  let saveTimer = null;
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let documents    = [];
+  let editIndex    = -1;
+  let deleteTarget = -1;
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const tbody         = document.getElementById('docTableBody');
+  const emptyState    = document.getElementById('emptyState');
+  const searchInput   = document.getElementById('search');
+  const submitBtn     = document.getElementById('submitBtn');
+  const submitText    = document.getElementById('submitText');
+  const submitIcon    = document.getElementById('submitIcon');
+  const clearBtn      = document.getElementById('clearBtn');
+  const editBanner    = document.getElementById('editBanner');
+  const formTitle     = document.getElementById('formTitle');
+  const deleteModal   = document.getElementById('deleteModal');
+  const docNumberInput = document.getElementById('docNumber');
+
+  // ── Data badge ─────────────────────────────────────────────────────────────
+  const now = new Date();
+  document.getElementById('dateBadge').textContent =
+    now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // ── Número automático ──────────────────────────────────────────────────────
+  function calcNextId() {
+    // pega o maior número já existente e soma 1
+    if (!documents.length) return 1;
+    const max = documents.reduce((acc, d) => {
+      const n = parseInt((d.number || '').replace(/\D/g, ''), 10);
+      return isNaN(n) ? acc : Math.max(acc, n);
+    }, 0);
+    return max + 1;
+  }
+
+  function padId(n) {
+    return 'DOC-' + String(n).padStart(4, '0');
+  }
+
+  function refreshNumberField() {
+    if (editIndex === -1) {
+      docNumberInput.value = padId(calcNextId());
+    }
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  function toast(msg, type = 'success') {
+    const c = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span class="toast-dot"></span>${msg}`;
+    c.appendChild(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 2800);
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  submitBtn.addEventListener('click', () => {
+    if (currentRole !== 'admin') { toast('Sem permissão para esta ação.', 'error'); return; }
+    const number      = docNumberInput.value.trim();
+    const type        = document.getElementById('docType').value.trim();
+    const sender      = document.getElementById('docSender').value.trim();
+    const date        = document.getElementById('docDate').value;
+    const observation = document.getElementById('docObservation').value.trim();
+
+    if (!type || !sender || !date) {
+      toast('Preencha todos os campos obrigatórios.', 'error');
+      return;
+    }
+
+    const doc = { number, type, sender, date, observation };
+
+    if (editIndex === -1) {
+      documents.push(doc);
+      toast(`Documento ${number} adicionado com sucesso.`, 'success');
+    } else {
+      documents[editIndex] = doc;
+      editIndex = -1;
+      toast(`Documento ${number} atualizado.`, 'info');
+    }
+
+    resetForm();
+    renderTable();
+    scheduleSave();
+  });
+
+  // ── Limpar ─────────────────────────────────────────────────────────────────
+  clearBtn.addEventListener('click', () => { editIndex = -1; resetForm(); });
+
+  function resetForm() {
+    ['docType','docSender','docDate','docObservation'].forEach(id =>
+      document.getElementById(id).value = '');
+    editBanner.classList.remove('show');
+    formTitle.textContent  = 'Novo Documento';
+    submitText.textContent = 'Adicionar Documento';
+    submitIcon.textContent = '＋';
+    submitBtn.style.background = '';
+    submitBtn.style.boxShadow  = '';
+    refreshNumberField();
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  function renderTable(filter = '') {
+    const q = filter.toLowerCase();
+    const filtered = q
+      ? documents.filter(d =>
+          (d.type   || '').toLowerCase().includes(q) ||
+          (d.number || '').toLowerCase().includes(q) ||
+          (d.sender || '').toLowerCase().includes(q))
+      : documents;
+
+    tbody.innerHTML = '';
+
+    if (!filtered.length) {
+      emptyState.style.display = 'block';
+    } else {
+      emptyState.style.display = 'none';
+      filtered.forEach((doc, idx) => {
+        const realIdx = documents.indexOf(doc);
+        const formatted = doc.date
+          ? new Date(doc.date + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+        const tr = document.createElement('tr');
+        tr.style.animationDelay = `${idx * 0.04}s`;
+        tr.innerHTML = `
+          <td class="td-number">${esc(doc.number)}</td>
+          <td><span class="type-chip">${esc(doc.type)}</span></td>
+          <td>${esc(doc.sender)}</td>
+          <td class="date-cell">${formatted}</td>
+          <td>${doc.observation ? esc(doc.observation) : '<span style="opacity:.3">—</span>'}</td>
+          <td class="actions-cell">
+            ${currentRole === 'admin' ? `
+              <button class="btn btn-ghost btn-sm" data-edit="${realIdx}">✏️ Editar</button>
+              <button class="btn btn-danger btn-sm" data-del="${realIdx}">🗑</button>
+            ` : '<span style="opacity:.3;font-size:.8rem">—</span>'}
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    updateStats();
+    refreshNumberField();
+  }
+
+  function esc(s) {
+    return String(s||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  function updateStats() {
+    const mn = now.getMonth() + 1, yr = now.getFullYear();
+    document.getElementById('statTotal').textContent   = documents.length;
+    document.getElementById('statTypes').textContent   = new Set(documents.map(d => d.type)).size;
+    document.getElementById('statSenders').textContent = new Set(documents.map(d => d.sender)).size;
+    document.getElementById('statMonth').textContent   = documents.filter(d => {
+      if (!d.date) return false;
+      const [y, m] = d.date.split('-');
+      return +m === mn && +y === yr;
+    }).length;
+  }
+
+  // ── Table click delegation ─────────────────────────────────────────────────
+  tbody.addEventListener('click', e => {
+    const editBtn = e.target.closest('[data-edit]');
+    const delBtn  = e.target.closest('[data-del]');
+
+    if (editBtn) {
+      const idx = parseInt(editBtn.dataset.edit);
+      const doc = documents[idx];
+      docNumberInput.value = doc.number;
+      document.getElementById('docType').value        = doc.type;
+      document.getElementById('docSender').value      = doc.sender;
+      document.getElementById('docDate').value        = doc.date;
+      document.getElementById('docObservation').value = doc.observation;
+      editIndex = idx;
+      editBanner.classList.add('show');
+      formTitle.textContent   = 'Editar Documento';
+      submitText.textContent  = 'Salvar Alterações';
+      submitIcon.textContent  = '✓';
+      submitBtn.style.background = 'var(--warning)';
+      submitBtn.style.boxShadow  = '0 0 20px rgba(255,184,48,.25)';
+    }
+
+    if (delBtn) {
+      deleteTarget = parseInt(delBtn.dataset.del);
+      deleteModal.classList.add('open');
+    }
+  });
+
+  // ── Delete modal ───────────────────────────────────────────────────────────
+  document.getElementById('cancelDelete').addEventListener('click', () => {
+    deleteModal.classList.remove('open'); deleteTarget = -1;
+  });
+  document.getElementById('confirmDelete').addEventListener('click', () => {
+    if (currentRole !== 'admin') { toast('Sem permissão para esta ação.', 'error'); return; }
+    if (deleteTarget >= 0) {
+      const num = documents[deleteTarget].number;
+      documents.splice(deleteTarget, 1);
+      deleteTarget = -1;
+      renderTable(searchInput.value);
+      scheduleSave();
+      toast(`Documento ${num} excluído.`, 'error');
+    }
+    deleteModal.classList.remove('open');
+  });
+  deleteModal.addEventListener('click', e => {
+    if (e.target === deleteModal) deleteModal.classList.remove('open');
+  });
+
+  // ── Search ─────────────────────────────────────────────────────────────────
+  searchInput.addEventListener('input', () => renderTable(searchInput.value));
+
+  // ── EXPORTAR XLSX (ExcelJS — com formatação) ───────────────────────────────
+  document.getElementById('exportXlsx').addEventListener('click', async () => {
+    if (!documents.length) { toast('Nenhum documento para exportar.', 'error'); return; }
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'DocFlow';
+    const ws = wb.addWorksheet('Documentos');
+
+    // colunas e larguras
+    ws.columns = [
+      { key: 'number',      width: 16 },
+      { key: 'type',        width: 22 },
+      { key: 'sender',      width: 30 },
+      { key: 'date',        width: 14 },
+      { key: 'observation', width: 44 },
+    ];
+
+    // ── cabeçalho ──
+    const headerRow = ws.addRow(['Número', 'Tipo', 'Remetente', 'Data', 'Observação']);
+    headerRow.height = 20;
+    headerRow.eachCell(cell => {
+      cell.font      = { name: 'Arial', bold: true, size: 11, color: { argb: 'FF000000' } };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border    = {
+        top:    { style: 'thin', color: { argb: 'FF9BB0D4' } },
+        bottom: { style: 'thin', color: { argb: 'FF9BB0D4' } },
+        left:   { style: 'thin', color: { argb: 'FF9BB0D4' } },
+        right:  { style: 'thin', color: { argb: 'FF9BB0D4' } },
+      };
+    });
+
+    // ── dados ──
+    const border = {
+      top:    { style: 'thin', color: { argb: 'FFBFBFBF' } },
+      bottom: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+      left:   { style: 'thin', color: { argb: 'FFBFBFBF' } },
+      right:  { style: 'thin', color: { argb: 'FFBFBFBF' } },
+    };
+
+    documents.forEach((d, i) => {
+      const formatted = d.date
+        ? new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+
+      const row = ws.addRow([d.number, d.type, d.sender, formatted, d.observation]);
+      row.height = 18;
+
+      // zebra: linhas pares com fundo levemente cinza
+      const bgColor = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F5F5';
+
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.font      = { name: 'Arial', size: 11 };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+        cell.border    = border;
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: colNumber === 1 || colNumber === 4 ? 'center' : 'left',
+          shrinkToFit: colNumber === 5  // reduz o texto para caber na célula
+        };
+      });
+    });
+
+    // gera o arquivo e dispara download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href = url; a.download = 'documentos.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+    toast('Planilha exportada com sucesso.', 'success');
+  });
+
+  // ── IMPORTAR XLSX ──────────────────────────────────────────────────────────
+  document.getElementById('importXlsx').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb   = XLSX.read(e.target.result, { type: 'array' });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+        if (rows.length < 2) { toast('Planilha vazia ou sem dados.', 'error'); return; }
+
+        // tenta mapear colunas pelo cabeçalho (case-insensitive)
+        const header = rows[0].map(h => String(h).toLowerCase().trim());
+        const col = name => header.indexOf(name);
+
+        const iNum  = col('número');
+        const iType = col('tipo');
+        const iSend = col('remetente');
+        const iDate = col('data');
+        const iObs  = col('observação') !== -1 ? col('observação') : col('observacao');
+
+        // fallback: assume ordem padrão se cabeçalho não bater
+        const get = (row, idx, fallbackIdx) =>
+          idx !== -1 ? String(row[idx] || '') : String(row[fallbackIdx] || '');
+
+        const imported = rows.slice(1)
+          .filter(r => r.some(c => c !== ''))
+          .map(r => {
+            // tenta converter data dd/mm/aaaa → aaaa-mm-dd
+            let rawDate = get(r, iDate, 3);
+            let isoDate = '';
+            const match = rawDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (match) isoDate = `${match[3]}-${match[2]}-${match[1]}`;
+            else if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) isoDate = rawDate;
+
+            return {
+              number:      get(r, iNum,  0),
+              type:        get(r, iType, 1),
+              sender:      get(r, iSend, 2),
+              date:        isoDate,
+              observation: get(r, iObs,  4)
+            };
+          });
+
+        documents = imported;
+        renderTable();
+        scheduleSave();
+        toast(`${imported.length} documento(s) importado(s).`, 'info');
+      } catch (err) {
+        toast('Erro ao ler a planilha.', 'error');
+        console.error(err);
+      }
+      this.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // ── Sync indicator ────────────────────────────────────────────────────────
+  function setSyncStatus(state) {
+    const el = document.getElementById('syncStatus');
+    if (state === 'saving')  el.innerHTML = '⏳ Salvando...';
+    if (state === 'saved')   el.innerHTML = '✓ Sincronizado';
+    if (state === 'error')   el.innerHTML = '⚠️ Erro ao salvar';
+    if (state === 'loading') el.innerHTML = '⏳ Carregando...';
+    if (state === '')        el.innerHTML = '';
+  }
+
+  // ── Salvar no JSONBin ──────────────────────────────────────────────────────
+  async function saveToServer() {
+    setSyncStatus('saving');
+    try {
+      const res = await fetch(BIN_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify({ documents })
+      });
+      if (!res.ok) throw new Error(res.status);
+      setSyncStatus('saved');
+      setTimeout(() => setSyncStatus(''), 3000);
+    } catch (err) {
+      setSyncStatus('error');
+      toast('Erro ao sincronizar com o servidor.', 'error');
+      console.error(err);
+    }
+  }
+
+  // ── Debounce de 1.5s antes de salvar ──────────────────────────────────────
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    setSyncStatus('saving');
+    saveTimer = setTimeout(saveToServer, 1500);
+  }
+
+  // ── Carregar do JSONBin ao iniciar ─────────────────────────────────────────
+  async function loadFromServer() {
+    setSyncStatus('loading');
+    try {
+      const res = await fetch(BIN_URL + '/latest', {
+        headers: { 'X-Master-Key': API_KEY }
+      });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      documents = (data.record && Array.isArray(data.record.documents))
+        ? data.record.documents : [];
+      renderTable();
+      setSyncStatus('');
+    } catch (err) {
+      setSyncStatus('error');
+      toast('Erro ao carregar dados do servidor.', 'error');
+      renderTable();
+      console.error(err);
+    }
+  }
+
+  // ── Config modal ──────────────────────────────────────────────────────────
+  document.getElementById('btnConfig').addEventListener('click', () => {
+    if (currentRole !== 'admin') { toast('Apenas administradores podem acessar as configurações.', 'error'); return; }
+    document.getElementById('configModal').classList.add('open');
+  });
+  document.getElementById('closeConfig').addEventListener('click', () => {
+    document.getElementById('configModal').classList.remove('open');
+  });
+  document.getElementById('configModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('configModal'))
+      document.getElementById('configModal').classList.remove('open');
+  });
+
+  // ── Clear server data ──────────────────────────────────────────────────────
+  document.getElementById('btnClearServer').addEventListener('click', () => {
+    document.getElementById('clearCount').textContent = `${documents.length} documento(s)`;
+    document.getElementById('configModal').classList.remove('open');
+    document.getElementById('clearModal').classList.add('open');
+  });
+  document.getElementById('cancelClear').addEventListener('click', () => {
+    document.getElementById('clearModal').classList.remove('open');
+    document.getElementById('configModal').classList.add('open');
+  });
+  document.getElementById('confirmClear').addEventListener('click', async () => {
+    document.getElementById('clearModal').classList.remove('open');
+    setSyncStatus('saving');
+    try {
+      const res = await fetch(BIN_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify({ documents: [] })
+      });
+      if (!res.ok) throw new Error(res.status);
+      documents = [];
+      renderTable();
+      setSyncStatus('saved');
+      setTimeout(() => setSyncStatus(''), 3000);
+      toast('Todos os dados foram apagados do servidor.', 'error');
+    } catch (err) {
+      setSyncStatus('error');
+      toast('Erro ao limpar os dados do servidor.', 'error');
+      console.error(err);
+    }
+  });
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  // loadFromServer() is called by applyRole() after login
+</script>
+</body>
+</html>
 
