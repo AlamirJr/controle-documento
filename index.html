@@ -350,6 +350,38 @@
     .user-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
     .dot-admin { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
     .dot-user  { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+      font-size: .82rem; color: var(--text-muted);
+    }
+    .pagination-info { font-weight: 300; }
+    .pagination-controls { display: flex; align-items: center; gap: 6px; }
+    .page-btn {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted); cursor: pointer; font-size: .8rem;
+      font-family: var(--font-display); font-weight: 600;
+      transition: all var(--transition);
+    }
+    .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .page-btn.active {
+      background: var(--accent); border-color: var(--accent);
+      color: #fff; box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .page-btn:disabled { opacity: .3; cursor: default; pointer-events: none; }
+    .page-ellipsis { color: var(--text-muted); padding: 0 4px; font-size: .8rem; }
+    .per-page-select {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 8px;
+      color: var(--text-dim); font-family: var(--font-body); font-size: .8rem;
+      outline: none; cursor: pointer;
+    }
+    .per-page-select:focus { border-color: var(--accent); }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
@@ -503,6 +535,21 @@
           <div class="empty-sub">Adicione o primeiro documento usando o formulário ao lado</div>
         </div>
       </div>
+      <!-- Pagination -->
+      <div class="pagination" id="paginationBar" style="display:none;">
+        <div class="pagination-info" id="paginationInfo"></div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text-muted);">
+            Por página:
+            <select class="per-page-select" id="perPageSelect">
+              <option value="20">20</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="pagination-controls" id="paginationControls"></div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -605,6 +652,8 @@
   let documents    = [];
   let editIndex    = -1;
   let deleteTarget = -1;
+  let currentPage  = 1;
+  let perPage      = 50;
 
   // ── DOM ────────────────────────────────────────────────────────────────────
   const tbody         = document.getElementById('docTableBody');
@@ -710,18 +759,32 @@
           (d.sender || '').toLowerCase().includes(q))
       : documents;
 
+    // reset to page 1 when filter changes
+    if (filter !== renderTable._lastFilter) {
+      currentPage = 1;
+      renderTable._lastFilter = filter;
+    }
+
     tbody.innerHTML = '';
+    const paginationBar = document.getElementById('paginationBar');
 
     if (!filtered.length) {
       emptyState.style.display = 'block';
+      paginationBar.style.display = 'none';
     } else {
       emptyState.style.display = 'none';
-      filtered.forEach((doc, idx) => {
+
+      const totalPages = Math.ceil(filtered.length / perPage);
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * perPage;
+      const pageItems = filtered.slice(start, start + perPage);
+
+      pageItems.forEach((doc, idx) => {
         const realIdx = documents.indexOf(doc);
         const formatted = doc.date
           ? new Date(doc.date + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
         const tr = document.createElement('tr');
-        tr.style.animationDelay = `${idx * 0.04}s`;
+        tr.style.animationDelay = `${idx * 0.03}s`;
         tr.innerHTML = `
           <td class="td-number">${esc(doc.number)}</td>
           <td><span class="type-chip">${esc(doc.type)}</span></td>
@@ -736,10 +799,54 @@
           </td>`;
         tbody.appendChild(tr);
       });
+
+      // pagination bar
+      paginationBar.style.display = filtered.length > perPage ? 'flex' : 'none';
+      const from = start + 1;
+      const to   = Math.min(start + perPage, filtered.length);
+      document.getElementById('paginationInfo').textContent =
+        `Exibindo ${from}–${to} de ${filtered.length} documentos`;
+
+      renderPaginationControls(totalPages);
     }
 
     updateStats();
     refreshNumberField();
+  }
+
+  function renderPaginationControls(totalPages) {
+    const controls = document.getElementById('paginationControls');
+    controls.innerHTML = '';
+
+    const btn = (label, page, disabled = false, active = false) => {
+      const b = document.createElement('button');
+      b.className = 'page-btn' + (active ? ' active' : '');
+      b.textContent = label;
+      b.disabled = disabled;
+      b.addEventListener('click', () => { currentPage = page; renderTable(searchInput.value); });
+      return b;
+    };
+
+    const ellipsis = () => {
+      const s = document.createElement('span');
+      s.className = 'page-ellipsis'; s.textContent = '…'; return s;
+    };
+
+    controls.appendChild(btn('‹', currentPage - 1, currentPage === 1));
+
+    // page number logic: always show first, last, current ±1
+    const pages = new Set([1, totalPages, currentPage, currentPage-1, currentPage+1]
+      .filter(p => p >= 1 && p <= totalPages));
+    const sorted = [...pages].sort((a,b) => a-b);
+
+    let prev = null;
+    sorted.forEach(p => {
+      if (prev && p - prev > 1) controls.appendChild(ellipsis());
+      controls.appendChild(btn(p, p, false, p === currentPage));
+      prev = p;
+    });
+
+    controls.appendChild(btn('›', currentPage + 1, currentPage === totalPages));
   }
 
   function esc(s) {
@@ -810,7 +917,13 @@
   });
 
   // ── Search ─────────────────────────────────────────────────────────────────
-  searchInput.addEventListener('input', () => renderTable(searchInput.value));
+  searchInput.addEventListener('input', () => { currentPage = 1; renderTable(searchInput.value); });
+
+  document.getElementById('perPageSelect').addEventListener('change', function() {
+    perPage = parseInt(this.value);
+    currentPage = 1;
+    renderTable(searchInput.value);
+  });
 
   // ── EXPORTAR XLSX (ExcelJS — com formatação) ───────────────────────────────
   document.getElementById('exportXlsx').addEventListener('click', async () => {
