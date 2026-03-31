@@ -617,6 +617,9 @@
       <span class="dot ${dotCls}"></span>${label}
     </span>`;
     document.getElementById('logoutBtn').addEventListener('click', logout);
+
+    // re-renderiza a tabela para aplicar permissões do perfil imediatamente
+    renderTable(searchInput ? searchInput.value : '');
   }
 
   function logout() {
