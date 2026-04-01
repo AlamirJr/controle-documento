@@ -473,7 +473,25 @@
           </div>
           <div class="field form-full">
             <label>Tipo de Documento</label>
-            <input type="text" id="docType" placeholder="Ex: Ofício, Memorando...">
+            <input type="text" id="docType" placeholder="Ex: Ofício, Memorando..."
+                   list="tiposSugeridos" autocomplete="off">
+            <datalist id="tiposSugeridos">
+              <option value="Ofício">
+              <option value="Ofício Circular">
+              <option value="Memorando">
+              <option value="Portaria">
+              <option value="Requerimento">
+              <option value="Relatório">
+              <option value="Parecer">
+              <option value="Ata">
+              <option value="Circular">
+              <option value="Despacho">
+              <option value="Nota Técnica">
+              <option value="Convocação">
+              <option value="Decreto">
+              <option value="Resolução">
+              <option value="Comunicado">
+            </datalist>
           </div>
           <div class="field form-full">
             <label>Remetente</label>
